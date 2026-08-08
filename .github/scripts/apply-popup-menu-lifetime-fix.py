@@ -61,6 +61,17 @@ patches = [
                 f"{T}{T}{T}{T}{T}action->mapTo(action->window(), QPoint()),\n"
                 f"{T}{T}{T}{T}{T}action->size()) + _st.scrollPadding);\n"
                 f"{T}{T}}} else if (padding.top()) {{",
+                "if (_parent) {\n"
+                f"{T}{T}{T}// we must have an action to position the submenu around\n"
+                f"{T}{T}{T}Assert(parentActionWidget != nullptr);\n"
+                f"{T}{T}{T}native->setParentControlGeometry(\n"
+                f"{T}{T}{T}{T}QRect(\n"
+                f"{T}{T}{T}{T}{T}parentActionWidget->mapTo(\n"
+                f"{T}{T}{T}{T}{T}{T}parentActionWidget->window(),\n"
+                f"{T}{T}{T}{T}{T}{T}QPoint()),\n"
+                f"{T}{T}{T}{T}{T}parentActionWidget->size())\n"
+                f"{T}{T}{T}{T}+ _st.scrollPadding);\n"
+                f"{T}{T}}} else if (padding.top()) {{",
             ),
             # --- Fix B: handleTriggered null guard ---
             (
@@ -126,8 +137,8 @@ def main():
             continue
         text = path.read_text(encoding="utf-8")
         changed = False
-        for old, new in patch["edits"]:
-            if new in text:
+        for old, new, *equivalents in patch["edits"]:
+            if any(candidate in text for candidate in (new, *equivalents)):
                 print(f"skip (already patched): {patch['file']} :: {old.splitlines()[0][:60]}")
                 continue
             if old not in text:

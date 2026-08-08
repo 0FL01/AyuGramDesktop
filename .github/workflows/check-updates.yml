@@ -1,6 +1,9 @@
 name: Check AyuGram Upstream Updates
 
 on:
+  push:
+    branches: [dev]
+    paths: [.github/workflows/check-updates.yml]
   schedule:
     - cron: '0 */12 * * *' # Каждые 12 часов
   workflow_dispatch: # Возможность ручного запуска
