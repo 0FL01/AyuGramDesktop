@@ -64,11 +64,17 @@ RUN git config --global advice.detachedHead false \
 EOF
 awk -v snippet="$git_retry_snippet_path" '
 	{ print }
-	$0 == "RUN adduser user" {
+	!inserted && /^FROM .* AS builder$/ {
 		while ((getline line < snippet) > 0) {
 			print line
 		}
 		close(snippet)
+		inserted = 1
+	}
+	END {
+		if (!inserted) {
+			exit 1
+		}
 	}
 ' "$dockerfile_path" > "$patched_dockerfile_path"
 mv "$patched_dockerfile_path" "$dockerfile_path"

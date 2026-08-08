@@ -103,6 +103,12 @@ jobs:
           python3 --version >/dev/null 2>&1 || sudo dnf install -y python3
           python3 .github/scripts/apply-issue9-timer-fix.py
 
+      - name: "Apply issue #30645 reaction preview lifetime fix"
+        run: python3 .github/scripts/apply-issue30645-reaction-preview-fix.py
+
+      - name: "Apply popup menu lifetime fix (Wayland not_null crash)"
+        run: python3 .github/scripts/apply-popup-menu-lifetime-fix.py
+
       - name: Set stable version metadata
         id: get_version
         run: |
