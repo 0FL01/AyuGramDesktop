@@ -275,18 +275,29 @@ jobs:
           TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
           TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
+          set -o pipefail
           mkdir -p .ccache
           sudo chmod -R 777 .ccache
 
-          docker run --rm \
+          LOG_FILE=$(mktemp)
+          if docker run --rm \
             --cpus="3" \
             -u root \
             -e TDESKTOP_API_ID \
             -e TDESKTOP_API_HASH \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$PWD/.ccache:/ccache" \
-            ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
-            /bin/bash /usr/src/tdesktop/.github/scripts/build-tdesktop-binary.sh
+            tdesktop:centos_env \
+            /bin/bash /usr/src/tdesktop/.github/scripts/build-tdesktop-binary.sh \
+              2>&1 | tee "$LOG_FILE"; then
+            exit 0
+          fi
+          FAILURE=$(tail -n 80 "$LOG_FILE" | tail -c 30000)
+          FAILURE=${FAILURE//'%'/'%25'}
+          FAILURE=${FAILURE//$'\r'/'%0D'}
+          FAILURE=${FAILURE//$'\n'/'%0A'}
+          echo "::error title=Build AyuGram binary failed::$FAILURE"
+          exit 1
 
       - name: Prepare Flatpak build directory
         run: |

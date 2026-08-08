@@ -11,8 +11,9 @@ ci_retry() {
 		echo "ci-retry: attempt $attempt/$attempts: $*"
 		if "$@"; then
 			return 0
+		else
+			status=$?
 		fi
-		status=$?
 		if [ "$attempt" -eq "$attempts" ]; then
 			return "$status"
 		fi
