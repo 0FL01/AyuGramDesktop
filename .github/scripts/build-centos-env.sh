@@ -18,6 +18,9 @@ cleanup() {
 trap cleanup EXIT
 
 cat > "$config_path" <<EOF
+[dns]
+  nameservers = ["1.1.1.1", "8.8.8.8"]
+
 [worker.oci]
   max-parallelism = $parallelism
 EOF
@@ -29,7 +32,7 @@ docker buildx create \
 	--name "$builder_name" \
 	--driver docker-container \
 	--driver-opt network=host \
-	--config "$config_path" \
+	--buildkitd-config "$config_path" \
 	--use
 docker buildx inspect --bootstrap
 DEBUG="${DEBUG-}" LTO="${LTO-}" JOBS="$jobs" poetry run gen_dockerfile > "$dockerfile_path"
