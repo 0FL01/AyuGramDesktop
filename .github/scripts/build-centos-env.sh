@@ -36,8 +36,7 @@ docker buildx create \
 	--use
 docker buildx inspect --bootstrap
 DEBUG="${DEBUG-}" LTO="${LTO-}" JOBS="$jobs" poetry run gen_dockerfile > "$dockerfile_path"
-perl -0pi -e 's{^(\s*(?:RUN\s+|&&\s+)?)dnf\b}{$1dnf-retry}mg; s{\bgit clone\b}{git-retry clone}g; s{\bgit fetch\b}{git-retry fetch}g; s{curl -sSL}{curl --retry 5 --retry-delay 10 --connect-timeout 30 -fL -sS}g' "$dockerfile_path"
-perl -0pi -e 's{git submodule update --init --recursive --depth=1([^\\\n]*) \\}{(git submodule sync --recursive; for attempt in 1 2 3; do git -c submodule.fetchJobs=1 submodule update --init --recursive --depth=1$1 && exit 0; sleep \$((attempt * 20)); done; git -c submodule.fetchJobs=1 submodule update --init --recursive$1) \\}g' "$dockerfile_path"
+perl -0pi -e 's{^(\s*(?:RUN\s+|&&\s+)?)dnf\b}{$1dnf-retry}mg; s{\bgit clone\b}{git-retry clone}g; s{\bgit fetch\b}{git-retry fetch}g; s{\bgit submodule update\b}{git-retry submodule update}g; s{curl -sSL}{curl --retry 5 --retry-delay 10 --connect-timeout 30 -fL -sS}g' "$dockerfile_path"
 cat > "$dnf_retry_snippet_path" <<'EOF'
 RUN cat <<'SCRIPT' > /usr/local/bin/dnf-retry && chmod +x /usr/local/bin/dnf-retry
 #!/usr/bin/env bash
