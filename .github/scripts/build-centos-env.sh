@@ -45,8 +45,9 @@ status=0
 while [ "$attempt" -le "$attempts" ]; do
 	if git "$@"; then
 		exit 0
+	else
+		status=$?
 	fi
-	status=$?
 	if [ "$attempt" -eq "$attempts" ]; then
 		exit "$status"
 	fi

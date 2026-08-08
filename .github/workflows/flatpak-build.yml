@@ -219,7 +219,19 @@ jobs:
           fi
   
       - name: Prepare libraries
-        run: DEBUG= LTO= JOBS=2 BUILDKIT_MAX_PARALLELISM=2 bash .github/scripts/build-centos-env.sh
+        run: |
+          set -o pipefail
+          LOG_FILE=$(mktemp)
+          if DEBUG= LTO= JOBS=2 BUILDKIT_MAX_PARALLELISM=2 \
+              bash .github/scripts/build-centos-env.sh 2>&1 | tee "$LOG_FILE"; then
+            exit 0
+          fi
+          FAILURE=$(tail -n 80 "$LOG_FILE" | tail -c 30000)
+          FAILURE=${FAILURE//'%'/'%25'}
+          FAILURE=${FAILURE//$'\r'/'%0D'}
+          FAILURE=${FAILURE//$'\n'/'%0A'}
+          echo "::error title=Prepare libraries failed::$FAILURE"
+          exit 1
   
       - name: Inspect Qt6 cache (post-prepare)
         run: |
