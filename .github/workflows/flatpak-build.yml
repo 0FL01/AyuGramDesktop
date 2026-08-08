@@ -1,4 +1,5 @@
 name: Build AyuGram Flatpak (Stable)
+run-name: Build AyuGram Flatpak ${{ inputs.upstream_tag }}
 
 on:
   workflow_dispatch:
