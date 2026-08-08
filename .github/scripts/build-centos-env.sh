@@ -7,11 +7,12 @@ builder_name="${BUILDKIT_BUILDER_NAME:-tdesktop-ci-${GITHUB_RUN_ID:-local}-${GIT
 config_path="$(mktemp)"
 dockerfile_path="$(mktemp)"
 patched_dockerfile_path="$(mktemp)"
+dnf_retry_snippet_path="$(mktemp)"
 git_retry_snippet_path="$(mktemp)"
 
 cleanup() {
 	docker buildx rm "$builder_name" >/dev/null 2>&1 || true
-	rm -f "$config_path" "$dockerfile_path" "$patched_dockerfile_path" "$git_retry_snippet_path"
+	rm -f "$config_path" "$dockerfile_path" "$patched_dockerfile_path" "$dnf_retry_snippet_path" "$git_retry_snippet_path"
 }
 
 trap cleanup EXIT
@@ -32,8 +33,29 @@ docker buildx create \
 	--use
 docker buildx inspect --bootstrap
 DEBUG="${DEBUG-}" LTO="${LTO-}" JOBS="$jobs" poetry run gen_dockerfile > "$dockerfile_path"
-perl -0pi -e 's{\bgit clone\b}{git-retry clone}g; s{\bgit fetch\b}{git-retry fetch}g; s{curl -sSL}{curl --retry 5 --retry-delay 10 --connect-timeout 30 -fL -sS}g' "$dockerfile_path"
+perl -0pi -e 's{^(\s*(?:RUN\s+|&&\s+)?)dnf\b}{$1dnf-retry}mg; s{\bgit clone\b}{git-retry clone}g; s{\bgit fetch\b}{git-retry fetch}g; s{curl -sSL}{curl --retry 5 --retry-delay 10 --connect-timeout 30 -fL -sS}g' "$dockerfile_path"
 perl -0pi -e 's{git submodule update --init --recursive --depth=1([^\\\n]*) \\}{(git submodule sync --recursive; for attempt in 1 2 3; do git -c submodule.fetchJobs=1 submodule update --init --recursive --depth=1$1 && exit 0; sleep \$((attempt * 20)); done; git -c submodule.fetchJobs=1 submodule update --init --recursive$1) \\}g' "$dockerfile_path"
+cat > "$dnf_retry_snippet_path" <<'EOF'
+RUN cat <<'SCRIPT' > /usr/local/bin/dnf-retry && chmod +x /usr/local/bin/dnf-retry
+#!/usr/bin/env bash
+set -uo pipefail
+attempt=1
+status=0
+while [ "$attempt" -le 4 ]; do
+	if dnf "$@"; then
+		exit 0
+	else
+		status=$?
+	fi
+	if [ "$attempt" -eq 4 ]; then
+		exit "$status"
+	fi
+	sleep $((20 * attempt))
+	attempt=$((attempt + 1))
+done
+exit "$status"
+SCRIPT
+EOF
 cat > "$git_retry_snippet_path" <<'EOF'
 RUN cat <<'SCRIPT' > /usr/local/bin/git-retry && chmod +x /usr/local/bin/git-retry
 #!/usr/bin/env bash
@@ -63,17 +85,24 @@ RUN git config --global advice.detachedHead false \
 	&& git config --global http.lowSpeedLimit 1000 \
 	&& git config --global http.lowSpeedTime 60
 EOF
-awk -v snippet="$git_retry_snippet_path" '
+awk -v dnfSnippet="$dnf_retry_snippet_path" -v gitSnippet="$git_retry_snippet_path" '
 	{ print }
-	!inserted && $0 == "WORKDIR /usr/src" {
-		while ((getline line < snippet) > 0) {
+	!dnfInserted && /^FROM .* AS builder$/ {
+		while ((getline line < dnfSnippet) > 0) {
 			print line
 		}
-		close(snippet)
-		inserted = 1
+		close(dnfSnippet)
+		dnfInserted = 1
+	}
+	!gitInserted && $0 == "WORKDIR /usr/src" {
+		while ((getline line < gitSnippet) > 0) {
+			print line
+		}
+		close(gitSnippet)
+		gitInserted = 1
 	}
 	END {
-		if (!inserted) {
+		if (!dnfInserted || !gitInserted) {
 			exit 1
 		}
 	}
