@@ -64,7 +64,7 @@ RUN git config --global advice.detachedHead false \
 EOF
 awk -v snippet="$git_retry_snippet_path" '
 	{ print }
-	!inserted && /^FROM .* AS builder$/ {
+	!inserted && $0 == "WORKDIR /usr/src" {
 		while ((getline line < snippet) > 0) {
 			print line
 		}
