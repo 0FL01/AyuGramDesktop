@@ -110,6 +110,9 @@ jobs:
       - name: "Apply popup menu lifetime fix (Wayland not_null crash)"
         run: python3 .github/scripts/apply-popup-menu-lifetime-fix.py
 
+      - name: Apply AyuGram language subset fix
+        run: python3 .github/scripts/apply-ayu-lang-subsets-fix.py
+
       - name: Set stable version metadata
         id: get_version
         run: |
